@@ -1,0 +1,131 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Store items available for sale",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "costPrice": { "type": "number" },
+        "category": { "type": "string" },
+        "stock": { "type": "number" },
+        "image": { "type": "string" },
+        "description": { "type": "string" },
+        "barcode": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "stock"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Sales transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "discountType": { "type": "string" },
+        "couponCode": { "type": "string" },
+        "memberId": { "type": "string" },
+        "cashierName": { "type": "string" },
+        "pointsEarned": { "type": "number" },
+        "pointsRedeemed": { "type": "number" },
+        "stampsEarned": { "type": "number" },
+        "stampsRedeemed": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "cashReceived": { "type": "number" },
+        "change": { "type": "number" },
+        "queueNumber": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "items", "total", "timestamp", "status"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Discount codes",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "type": { "type": "string" },
+        "value": { "type": "number" },
+        "description": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["code", "type", "value", "isActive"]
+    },
+    "Member": {
+      "title": "Member",
+      "description": "Customer loyalty data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "points": { "type": "number" },
+        "stamps": { "type": "number" },
+        "registerDate": { "type": "string" }
+      },
+      "required": ["id", "name", "phone"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Staff/Personnel",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "roleId": { "type": "string" },
+        "password": { "type": "string" },
+        "pin": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "roleId"]
+    },
+    "Role": {
+      "title": "Role",
+      "description": "Permissions roles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "permissions": { "type": "array" },
+        "isSystem": { "type": "boolean" }
+      },
+      "required": ["id", "name", "permissions"]
+    },
+    "StoreConfig": {
+      "title": "StoreConfig",
+      "description": "Global settings",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "taxRate": { "type": "number" },
+        "currency": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "themeColor": { "type": "string" },
+        "lowStockThreshold": { "type": "number" },
+        "loyaltySystem": { "type": "string" },
+        "pointEarningRate": { "type": "number" },
+        "pointRedemptionRate": { "type": "number" },
+        "adminPin": { "type": "string" },
+        "queueEnabled": { "type": "boolean" }
+      }
+    }
+  },
+  "firestore": {
+    "products": { "schema": "Product", "description": "Global product catalog" },
+    "orders": { "schema": "Order", "description": "Global sales history" },
+    "coupons": { "schema": "Coupon", "description": "Marketing coupons" },
+    "members": { "schema": "Member", "description": "Customer database" },
+    "users": { "schema": "User", "description": "System users" },
+    "roles": { "schema": "Role", "description": "System roles" },
+    "config": { "schema": "StoreConfig", "description": "Singleton configuration" }
+  }
+}

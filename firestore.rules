@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'sahakorn.dbs@gmail.com' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'admin'
+      );
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        isAdmin() ||
+        exists(/databases/$(database)/documents/users/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+    function isValidProduct(p) {
+      return p.name is string && p.name.size() > 0 && p.name.size() <= 200 &&
+             p.price is number && p.price >= 0 &&
+             p.stock is number &&
+             p.costPrice is number;
+    }
+
+    function isValidOrder(o) {
+      return o.items is list && o.items.size() > 0 &&
+             o.total is number && o.total >= 0 &&
+             o.timestamp is string &&
+             o.status in ['completed', 'preparing', 'ready'];
+    }
+
+    // --- Rules ---
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow create, update: if isStaff() && isValidProduct(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidOrder(incoming());
+      allow update: if isStaff() && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']) || isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /members/{memberId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    match /coupons/{code} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /roles/{roleId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /config/settings {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /restockRequests/{requestId} {
+      allow read: if isStaff();
+      allow create: if isSignedIn();
+      allow update, delete: if isStaff();
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "DBS POS AI2",
+  "description": "ระบบ POS อัจฉริยะสำหรับร้านค้าขนาดเล็ก จัดการสต็อกแบบเรียลไทม์ พร้อมระบบวิเคราะห์ยอดขายด้วย AI และหน้าจอที่ใช้งานง่ายบนมือถือ",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}
