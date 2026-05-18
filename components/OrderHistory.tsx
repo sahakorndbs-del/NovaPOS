@@ -120,7 +120,7 @@ const OrderHistory: React.FC = () => {
                     <td className="p-4 text-right">
                        <div className="flex justify-end gap-2">
                          <button onClick={() => window.print()} className="p-2 text-slate-400 hover:text-blue-600"><Printer size={16} /></button>
-                         {currentUser?.roleId === 'admin' && (
+                         {(currentUser?.isAdmin || currentUser?.roleId === 'admin') && (
                            <button onClick={() => setConfirmDeleteId(order.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
                          )}
                        </div>

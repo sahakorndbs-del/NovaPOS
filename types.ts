@@ -46,6 +46,7 @@ export interface User {
   name: string;
   email: string;
   roleId: string;
+  isAdmin?: boolean;
 }
 
 export type OrderStatus = 'completed' | 'preparing' | 'ready';

@@ -20,7 +20,7 @@ const SettingsView: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'general' | 'payment' | 'members' | 'coupons' | 'connect' | 'admin'>('general');
     
     // Admin Check
-    const isCurrentUserAdmin = currentUser?.roleId === 'admin';
+    const isCurrentUserAdmin = currentUser?.isAdmin || currentUser?.roleId === 'admin';
 
     // Generic Delete Confirmation State
     const [deleteConfirmation, setDeleteConfirmation] = useState<{

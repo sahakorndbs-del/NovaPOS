@@ -133,18 +133,25 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Effect to map currentUser when users or auth state changes
   useEffect(() => {
-    const fbUser = auth.currentUser;
-    if (fbUser) {
-      const existingUser = users.find(u => u.email === fbUser.email);
-      if (existingUser) {
-        setCurrentUser(existingUser);
-      } else if (fbUser.email === 'sahakorn.dbs@gmail.com') {
-        setCurrentUser({ id: fbUser.uid, name: fbUser.displayName || 'สหกรณ์ DBS', email: fbUser.email!, roleId: 'admin' });
-      } else if (users.length > 0) {
-        setCurrentUser({ id: fbUser.uid, name: fbUser.displayName || fbUser.email!, email: fbUser.email!, roleId: 'cashier' });
+    const checkUser = () => {
+      const fbUser = auth.currentUser;
+      if (fbUser) {
+        const isOwner = fbUser.email === 'sahakorn.dbs@gmail.com';
+        const existingUser = users.find(u => u.email === fbUser.email);
+        
+        if (existingUser) {
+          setCurrentUser({ ...existingUser, isAdmin: isOwner || existingUser.roleId === 'admin' });
+        } else if (isOwner) {
+          setCurrentUser({ id: fbUser.uid, name: fbUser.displayName || 'สหกรณ์ DBS', email: fbUser.email!, roleId: 'admin', isAdmin: true });
+        } else if (users.length > 0) {
+          setCurrentUser({ id: fbUser.uid, name: fbUser.displayName || fbUser.email!, email: fbUser.email!, roleId: 'cashier', isAdmin: false });
+        }
       }
-    }
-  }, [users]);
+    };
+
+    checkUser();
+    // Also listen to auth changes more directly if needed, but onAuthStateChanged in the other effect handles the subscription start
+  }, [users, auth.currentUser]);
 
   // Theme support
   useEffect(() => {

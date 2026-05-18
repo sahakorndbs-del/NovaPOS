@@ -25,7 +25,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
   ] as const;
 
   const userRole = roles.find(r => r.id === currentUser?.roleId);
-  const permissions = userRole?.permissions || ['dashboard', 'pos', 'queue', 'orders', 'sales-report', 'members', 'products', 'discounts', 'settings'];
+  const permissions = currentUser?.isAdmin 
+    ? allMenuItems.map(m => m.id as ViewState) 
+    : (userRole?.permissions || ['dashboard', 'pos', 'queue', 'orders']);
+  
   const allowedMenuItems = allMenuItems.filter(item => permissions.includes(item.id as ViewState));
 
   return (

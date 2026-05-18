@@ -49,7 +49,7 @@ const ProductManagement: React.FC = () => {
     name: string;
   }>({ isOpen: false, id: null, name: '' });
 
-  const isAdmin = currentUser?.roleId === 'admin';
+  const isAdmin = currentUser?.isAdmin || currentUser?.roleId === 'admin';
 
   const [formData, setFormData] = useState<Omit<Product, 'id'>>({
     name: '',
