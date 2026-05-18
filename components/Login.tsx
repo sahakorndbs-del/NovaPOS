@@ -15,8 +15,9 @@ const Login: React.FC = () => {
     setError('');
     try {
       await loginWithGoogle();
-    } catch (err) {
-      setError('ไม่สามารถลงชื่อเข้าใช้ด้วย Google ได้');
+    } catch (err: any) {
+      console.error("Login detail error:", err);
+      setError(`ไม่สามารถลงชื่อเข้าใช้ด้วย Google ได้: ${err.message || 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
