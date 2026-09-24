@@ -3,11 +3,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { DollarSign, ShoppingBag, AlertTriangle, TrendingUp, Sparkles, Bell, X, CheckCircle, Store, PiggyBank, Briefcase } from 'lucide-react';
-import { analyzeSalesData } from '../services/geminiService';
+import { analyzeSalesData, generateLocalSalesInsight } from '../services/geminiService';
 
 const Dashboard: React.FC = () => {
   const { stats, orders, storeConfig, products, currentThemeColorHex } = useStore();
-  const [aiInsight, setAiInsight] = useState<string>("กำลังวิเคราะห์แนวโน้มการขายของคุณ...");
+  const [aiInsight, setAiInsight] = useState<string>(() => generateLocalSalesInsight(stats));
   const [loadingAi, setLoadingAi] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   
@@ -15,14 +15,24 @@ const Dashboard: React.FC = () => {
 
   const handleGenerateInsight = async () => {
     setLoadingAi(true);
-    const insight = await analyzeSalesData(stats, orders.length, storeConfig.aiApiKey);
-    setAiInsight(insight);
-    setLoadingAi(false);
+    try {
+      const insight = await analyzeSalesData(stats, orders.length, storeConfig.aiApiKey);
+      setAiInsight(insight);
+    } catch (e) {
+      setAiInsight(generateLocalSalesInsight(stats));
+    } finally {
+      setLoadingAi(false);
+    }
   };
 
   useEffect(() => {
-    handleGenerateInsight();
-  }, []);
+    // If user configured their own AI API key, automatically fetch Gemini insight; otherwise update smart local insight
+    if (storeConfig.aiApiKey) {
+      handleGenerateInsight();
+    } else {
+      setAiInsight(generateLocalSalesInsight(stats));
+    }
+  }, [stats.todaySales, stats.orderCount, storeConfig.aiApiKey]);
 
   // Format data for chart
   const last7DaysData = [...Array(7)].map((_, i) => {

@@ -135,23 +135,39 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   useEffect(() => {
     const checkUser = () => {
       const fbUser = auth.currentUser;
-      if (fbUser) {
-        const isOwner = fbUser.email === 'sahakorn.dbs@gmail.com';
-        const existingUser = users.find(u => u.email === fbUser.email);
+      if (fbUser && fbUser.email) {
+        const isOwner = fbUser.email.toLowerCase() === 'sahakorn.dbs@gmail.com';
+        const existingUser = users.find(u => u.email?.toLowerCase() === fbUser.email?.toLowerCase());
         
+        let targetUser: User | null = null;
         if (existingUser) {
-          setCurrentUser({ ...existingUser, isAdmin: isOwner || existingUser.roleId === 'admin' });
+          targetUser = { ...existingUser, isAdmin: isOwner || existingUser.roleId === 'admin' };
         } else if (isOwner) {
-          setCurrentUser({ id: fbUser.uid, name: fbUser.displayName || 'สหกรณ์ DBS', email: fbUser.email!, roleId: 'admin', isAdmin: true });
+          targetUser = { id: fbUser.uid, name: fbUser.displayName || 'สหกรณ์ DBS', email: fbUser.email, roleId: 'admin', isAdmin: true };
         } else if (users.length > 0) {
-          setCurrentUser({ id: fbUser.uid, name: fbUser.displayName || fbUser.email!, email: fbUser.email!, roleId: 'cashier', isAdmin: false });
+          targetUser = { id: fbUser.uid, name: fbUser.displayName || fbUser.email, email: fbUser.email, roleId: 'cashier', isAdmin: false };
+        }
+
+        if (targetUser) {
+          setCurrentUser(prev => {
+            if (
+              prev &&
+              prev.id === targetUser!.id &&
+              prev.email === targetUser!.email &&
+              prev.roleId === targetUser!.roleId &&
+              prev.isAdmin === targetUser!.isAdmin &&
+              prev.name === targetUser!.name
+            ) {
+              return prev;
+            }
+            return targetUser;
+          });
         }
       }
     };
 
     checkUser();
-    // Also listen to auth changes more directly if needed, but onAuthStateChanged in the other effect handles the subscription start
-  }, [users, auth.currentUser]);
+  }, [users]);
 
   // Theme support
   useEffect(() => {
