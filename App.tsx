@@ -1179,7 +1179,7 @@ const AppContent: React.FC = () => {
 
   const renderView = () => {
     switch (currentView) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard setView={setCurrentView} />;
       case 'pos': return <POS />;
       case 'products': return <ProductManagement />;
       case 'members': return <MemberManagement />;
@@ -1188,7 +1188,7 @@ const AppContent: React.FC = () => {
       case 'queue': return <QueueManagement />;
       case 'discounts': return <DiscountHistory />;
       case 'sales-report': return <SalesReport />;
-      default: return <Dashboard />;
+      default: return <Dashboard setView={setCurrentView} />;
     }
   };
 

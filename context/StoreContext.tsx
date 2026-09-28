@@ -4,6 +4,7 @@ import { Product, Order, StoreConfig, DashboardStats, Coupon, Member, User, Rest
 import { db, auth, signInWithGoogle, logout as firebaseLogout } from '../lib/firebase';
 import { firebaseService } from '../services/firebaseService';
 import { onAuthStateChanged } from 'firebase/auth';
+import { getLocalDateString, getLocalMonthString } from '../lib/dateUtils';
 
 interface StoreContextType {
   products: Product[];
@@ -41,6 +42,11 @@ interface StoreContextType {
   refreshStats: () => void;
   currentThemeColorHex: string; 
   isSyncing: boolean;
+  readAlertIds: string[];
+  unreadAlertCount: number;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
+  clearReadNotifications: () => void;
 }
 
 const THEME_PALETTES: Record<string, Record<string, string>> = {
@@ -85,6 +91,60 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [restockRequests, setRestockRequests] = useState<RestockRequest[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Read notification tracking
+  const [readAlertIds, setReadAlertIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('novapos_read_alert_ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const markNotificationAsRead = (id: string) => {
+    if (!id) return;
+    setReadAlertIds(prev => {
+      const list = prev || [];
+      if (list.includes(id)) return list;
+      const updated = [...list, id];
+      try {
+        localStorage.setItem('novapos_read_alert_ids', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const markAllNotificationsAsRead = () => {
+    const lowThreshold = storeConfig?.lowStockThreshold || 10;
+    const currentAlertIds = [
+      ...(products || []).filter(p => p && p.id && Number(p.stock) < lowThreshold).map(p => p.id),
+      ...(restockRequests || []).filter(r => r && r.id && r.status === 'pending').map(r => r.id)
+    ];
+    setReadAlertIds(currentAlertIds);
+    try {
+      localStorage.setItem('novapos_read_alert_ids', JSON.stringify(currentAlertIds));
+    } catch (e) {}
+  };
+
+  const clearReadNotifications = () => {
+    setReadAlertIds([]);
+    try {
+      localStorage.removeItem('novapos_read_alert_ids');
+    } catch (e) {}
+  };
+
+  const unreadAlertCount = useMemo(() => {
+    const lowThreshold = storeConfig?.lowStockThreshold || 10;
+    const readIds = readAlertIds || [];
+    const unreadLowStock = (products || []).filter(
+      p => p && p.id && Number(p.stock) < lowThreshold && !readIds.includes(p.id)
+    ).length;
+    const unreadRestocks = (restockRequests || []).filter(
+      r => r && r.id && r.status === 'pending' && !readIds.includes(r.id)
+    ).length;
+    return unreadLowStock + unreadRestocks;
+  }, [products, storeConfig?.lowStockThreshold, restockRequests, readAlertIds]);
 
   // Auth and Sync synchronization
   useEffect(() => {
@@ -149,6 +209,17 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
 
         if (targetUser) {
+          // Ensure user document exists in Firestore users collection for security rules
+          if (!existingUser) {
+            firebaseService.set('users', fbUser.uid, {
+              id: fbUser.uid,
+              name: targetUser.name,
+              email: targetUser.email,
+              roleId: targetUser.roleId,
+              isAdmin: targetUser.isAdmin
+            }).catch(e => console.error("Could not auto-sync user doc:", e));
+          }
+
           setCurrentUser(prev => {
             if (
               prev &&
@@ -179,12 +250,11 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Derived stats using useMemo (replaces state + useEffect)
   const stats = useMemo<DashboardStats>(() => {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const monthStr = now.toISOString().slice(0, 7);
+    const todayStr = getLocalDateString(new Date());
+    const monthStr = getLocalMonthString(new Date());
     
-    const todayOrders = orders.filter(o => o.timestamp.startsWith(todayStr));
-    const monthlyOrders = orders.filter(o => o.timestamp.startsWith(monthStr));
+    const todayOrders = orders.filter(o => getLocalDateString(o.timestamp) === todayStr);
+    const monthlyOrders = orders.filter(o => getLocalMonthString(o.timestamp) === monthStr);
     
     const calculateOrderCost = (order: Order) => 
       Array.isArray(order.items) ? order.items.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0) : 0;
@@ -233,9 +303,29 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  const deleteProduct = async (id: string) => {
+    // 1. Optimistic removal: remove immediately from UI so the product disappears without delay
+    setProducts(prev => prev.filter(p => p.id !== id));
+    setIsSyncing(true);
+    try {
+      await firebaseService.delete('products', id);
+    } catch (err) {
+      console.error("Failed to delete product from database:", err);
+      try {
+        const fresh = await firebaseService.getAll('products');
+        if (fresh) setProducts(fresh);
+      } catch (e) {}
+      throw err;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const deleteOrder = async (orderId: string) => {
     const orderToDelete = orders.find(o => o.id === orderId);
     if (!orderToDelete) return;
+    // Optimistic removal
+    setOrders(prev => prev.filter(o => o.id !== orderId));
     setIsSyncing(true);
     try {
       for (const item of orderToDelete.items) {
@@ -245,6 +335,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
       await firebaseService.delete('orders', orderId);
+    } catch (err) {
+      console.error("Failed to delete order:", err);
+      try {
+        const fresh = await firebaseService.getAll('orders');
+        if (fresh) setOrders(fresh.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+      } catch (e) {}
+      throw err;
     } finally {
       setIsSyncing(false);
     }
@@ -264,28 +361,45 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       products, orders, coupons, members, users, roles, currentUser, restockRequests, storeConfig, 
       addProduct: (p) => firebaseService.set('products', p.id, p), 
       updateProduct: (p) => firebaseService.set('products', p.id, p), 
-      deleteProduct: (id) => firebaseService.delete('products', id),
+      deleteProduct,
       addOrder, deleteOrder, updateOrderStatus: (id, status) => {
         firebaseService.set('orders', id, { status });
       }, 
       addCoupon: (c) => firebaseService.set('coupons', c.code, c), 
       updateCoupon: (c) => firebaseService.set('coupons', c.code, c), 
-      deleteCoupon: (code) => firebaseService.delete('coupons', code),
+      deleteCoupon: (code) => {
+        setCoupons(prev => prev.filter(c => c.code !== code));
+        return firebaseService.delete('coupons', code);
+      },
       addMember: (m) => firebaseService.set('members', m.id, m), 
       updateMember: (m) => firebaseService.set('members', m.id, m), 
-      deleteMember: (id) => firebaseService.delete('members', id),
+      deleteMember: (id) => {
+        setMembers(prev => prev.filter(m => m.id !== id));
+        return firebaseService.delete('members', id);
+      },
       addUser: (u) => firebaseService.set('users', u.id, u), 
       updateUser: (u) => firebaseService.set('users', u.id, u), 
-      deleteUser: (id) => firebaseService.delete('users', id),
+      deleteUser: (id) => {
+        setUsers(prev => prev.filter(u => u.id !== id));
+        return firebaseService.delete('users', id);
+      },
       addRole: (r) => firebaseService.set('roles', r.id, r), 
       updateRole: (r) => firebaseService.set('roles', r.id, r), 
-      deleteRole: (id) => firebaseService.delete('roles', id), 
+      deleteRole: (id) => {
+        setRoles(prev => prev.filter(r => r.id !== id));
+        return firebaseService.delete('roles', id);
+      }, 
       loginWithGoogle, logout,
       addRestockRequest: (r) => firebaseService.add('restockRequests', r), 
       updateConfig: (c) => firebaseService.set('config', 'settings', c), 
       stats, refreshStats, 
       currentThemeColorHex: (THEME_PALETTES[storeConfig.themeColor] || THEME_PALETTES.blue)[600],
-      isSyncing
+      isSyncing,
+      readAlertIds,
+      unreadAlertCount,
+      markNotificationAsRead,
+      markAllNotificationsAsRead,
+      clearReadNotifications
     }}>
       {children}
     </StoreContext.Provider>

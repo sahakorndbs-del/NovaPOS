@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Product, CartItem, Order, Member, PaymentMethodType } from '../types';
+import { getLocalDateString } from '../lib/dateUtils';
 import { Search, Trash2, Plus, Minus, CreditCard, Banknote, X, Printer, CheckCircle, ShoppingCart, ScanLine, TicketPercent, User, UserPlus, Gift, Link, Divide, Bell, Camera, Tag, Coins, Stamp, QrCode, Landmark, Wallet, Mic, MicOff, Volume2, Info, Sparkles, Loader2, VolumeX, Delete, Copy, Radio, Filter, Layers, AlertTriangle } from 'lucide-react';
 import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -235,6 +236,10 @@ const POS: React.FC = () => {
     setIsScannerOpen(false);
   };
 
+  const removeFromCart = useCallback((id: string) => {
+    setCart(prev => prev.filter(i => i.id !== id));
+  }, []);
+
   const updateQuantity = useCallback((id: string, delta: number) => {
     setCart(prev => {
       const item = prev.find(i => i.id === id);
@@ -253,6 +258,10 @@ const POS: React.FC = () => {
     const received = pReceived !== undefined ? pReceived : finalSubtotal;
     const finalChange = Math.max(0, received - finalSubtotal);
 
+    const todayStr = getLocalDateString(new Date());
+    const todayOrders = orders.filter(o => getLocalDateString(o.timestamp) === todayStr);
+    const nextQueueNumber = (todayOrders.reduce((max, o) => Math.max(max, o.queueNumber || 0), 0) || todayOrders.length) + 1;
+
     const newOrder: Order = {
       id: Date.now().toString(),
       items: [...currentCart],
@@ -265,7 +274,7 @@ const POS: React.FC = () => {
       cashReceived: received,
       change: finalChange,
       status: storeConfig.queueEnabled ? 'preparing' : 'completed',
-      queueNumber: storeConfig.queueEnabled ? orders.length + 1 : undefined
+      ...(storeConfig.queueEnabled ? { queueNumber: nextQueueNumber } : {})
     };
 
     addOrder(newOrder);
@@ -279,7 +288,7 @@ const POS: React.FC = () => {
       change: finalChange, 
       items: newOrder.items.map(i => `${i.name} ${i.quantity} ชิ้น`)
     };
-  }, [addOrder, orders.length, storeConfig.queueEnabled]);
+  }, [addOrder, orders, storeConfig.queueEnabled]);
 
   const stopVoiceSession = useCallback(async () => {
     if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
@@ -819,10 +828,19 @@ const POS: React.FC = () => {
                   <h4 className="text-xs font-black text-slate-800 truncate">{item.name}</h4>
                   <div className="text-primary-600 font-black text-lg">{storeConfig.currency}{(item.price * item.quantity).toFixed(2)}</div>
                 </div>
-                <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
-                    <button onClick={() => updateQuantity(item.id, -1)} className="p-2 hover:bg-white"><Minus size={14}/></button>
-                    <span className="w-8 text-center text-xs font-black">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.id, 1)} className="p-2 hover:bg-white"><Plus size={14}/></button>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                      <button onClick={() => updateQuantity(item.id, -1)} className="p-2 hover:bg-white text-slate-600 transition-colors"><Minus size={14}/></button>
+                      <span className="w-7 text-center text-xs font-black">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.id, 1)} className="p-2 hover:bg-white text-slate-600 transition-colors"><Plus size={14}/></button>
+                  </div>
+                  <button 
+                    onClick={() => removeFromCart(item.id)} 
+                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                    title="ลบออกจากตะกร้า"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
             ))

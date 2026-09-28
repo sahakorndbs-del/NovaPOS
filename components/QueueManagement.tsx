@@ -85,7 +85,7 @@ const QueueManagement: React.FC = () => {
                             <div key={order.id} className="bg-white p-4 rounded-xl border-l-4 border-amber-400 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex justify-between items-start mb-2">
                                     <div>
-                                        <span className="text-3xl font-bold text-slate-800 mr-2">Q{order.queueNumber}</span>
+                                        <span className="text-3xl font-bold text-slate-800 mr-2">Q{order.queueNumber ?? '-'}</span>
                                         <span className="text-xs text-slate-500 font-mono">#{order.id.slice(-4)}</span>
                                     </div>
                                     <div className="text-right">
@@ -137,7 +137,7 @@ const QueueManagement: React.FC = () => {
                                 <div key={order.id} className="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm hover:shadow-md transition-shadow opacity-90">
                                     <div className="flex justify-between items-start mb-2">
                                         <div>
-                                            <span className="text-3xl font-bold text-green-700 mr-2">Q{order.queueNumber}</span>
+                                            <span className="text-3xl font-bold text-green-700 mr-2">Q{order.queueNumber ?? '-'}</span>
                                             <span className="text-xs text-slate-500 font-mono">#{order.id.slice(-4)}</span>
                                         </div>
                                         <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">

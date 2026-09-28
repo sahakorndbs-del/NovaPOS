@@ -17,8 +17,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'sahakorn.dbs@gmail.com' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'admin'
+        (request.auth.token.email != null && request.auth.token.email.lower() == 'sahakorn.dbs@gmail.com') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'admin')
       );
     }
 
@@ -59,8 +60,8 @@ service cloud.firestore {
     // --- Rules ---
     match /products/{productId} {
       allow read: if isSignedIn();
-      allow create, update: if isStaff() && isValidProduct(incoming());
-      allow delete: if isAdmin();
+      allow create, update: if (isStaff() || isAdmin()) && isValidProduct(incoming());
+      allow delete: if isStaff() || isAdmin();
     }
 
     match /orders/{orderId} {
@@ -69,13 +70,13 @@ service cloud.firestore {
       allow update: if isStaff() && (
         incoming().diff(existing()).affectedKeys().hasOnly(['status']) || isAdmin()
       );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isStaff();
     }
 
     match /members/{memberId} {
       allow read: if isStaff();
       allow create, update: if isStaff();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isStaff();
     }
 
     match /coupons/{code} {
@@ -85,7 +86,8 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow create, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
     }
 
     match /roles/{roleId} {

@@ -59,8 +59,13 @@ const Barcode: React.FC<BarcodeProps> = ({
   const totalWidth = pattern.length * width;
 
   return (
-    <div className={`flex flex-col items-center bg-white p-2 rounded ${className}`}>
-      <svg width={totalWidth} height={height} viewBox={`0 0 ${totalWidth} ${height}`}>
+    <div className={`flex flex-col items-center ${className ? className : 'bg-white p-2 rounded'}`}>
+      <svg 
+        width={totalWidth} 
+        height={height} 
+        viewBox={`0 0 ${totalWidth} ${height}`}
+        style={{ display: 'block' }}
+      >
         {pattern.split('').map((char, i) => (
           char === '1' && (
             <rect 

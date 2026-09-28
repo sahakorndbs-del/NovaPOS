@@ -62,11 +62,39 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
+/**
+ * Recursively removes all undefined fields from objects and arrays.
+ * Firestore client SDK strictly rejects any object with `undefined` values.
+ */
+export function cleanUndefined<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data
+      .filter(item => item !== undefined)
+      .map(item => cleanUndefined(item)) as unknown as T;
+  }
+  if (typeof data === 'object') {
+    if (data instanceof Date || typeof (data as any).toMillis === 'function') {
+      return data;
+    }
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        result[key] = cleanUndefined(value);
+      }
+    }
+    return result as T;
+  }
+  return data;
+}
+
 export const firebaseService = {
   // Generic collection listener
   subscribeCollection: (path: string, callback: (data: any[]) => void) => {
     return onSnapshot(collection(db, path), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       callback(data);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
@@ -77,7 +105,7 @@ export const firebaseService = {
   subscribeDoc: (path: string, docId: string, callback: (data: any) => void) => {
     return onSnapshot(doc(db, path, docId), (snapshot) => {
       if (snapshot.exists()) {
-        callback({ id: snapshot.id, ...snapshot.data() });
+        callback({ ...snapshot.data(), id: snapshot.id });
       } else {
         callback(null);
       }
@@ -89,7 +117,8 @@ export const firebaseService = {
   // Create or Update
   set: async (path: string, id: string, data: any) => {
     try {
-      await setDoc(doc(db, path, id), { ...data, updatedAt: new Date().toISOString() }, { merge: true });
+      const sanitized = cleanUndefined({ ...data, id });
+      await setDoc(doc(db, path, id), { ...sanitized, updatedAt: new Date().toISOString() }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `${path}/${id}`);
     }
@@ -98,7 +127,8 @@ export const firebaseService = {
   // Add (auto ID)
   add: async (path: string, data: any) => {
     try {
-      const docRef = await addDoc(collection(db, path), { ...data, createdAt: new Date().toISOString() });
+      const sanitized = cleanUndefined(data);
+      const docRef = await addDoc(collection(db, path), { ...sanitized, createdAt: new Date().toISOString() });
       return docRef.id;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
@@ -108,7 +138,21 @@ export const firebaseService = {
   // Delete
   delete: async (path: string, id: string) => {
     try {
+      // 1. Delete by doc ID
       await deleteDoc(doc(db, path, id));
+
+      // 2. Also check if any doc in this collection has field id == id (in case document ID differed)
+      try {
+        const q = query(collection(db, path), where('id', '==', id));
+        const querySnap = await getDocs(q);
+        for (const d of querySnap.docs) {
+          if (d.id !== id) {
+            await deleteDoc(doc(db, path, d.id));
+          }
+        }
+      } catch (subErr) {
+        // Fallback catch if index/rules for sub-query
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
     }
@@ -118,7 +162,7 @@ export const firebaseService = {
   getAll: async (path: string) => {
     try {
       const snapshot = await getDocs(collection(db, path));
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
     }

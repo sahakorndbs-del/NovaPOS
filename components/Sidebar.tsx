@@ -10,7 +10,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
-  const { logout, currentUser, roles, isSyncing, pullFromCloud, storeConfig } = useStore();
+  const { logout, currentUser, roles, isSyncing, pullFromCloud, storeConfig, unreadAlertCount, markAllNotificationsAsRead } = useStore();
 
   const allMenuItems = [
     { id: 'dashboard', label: 'ภาพรวมร้านค้า', icon: LayoutDashboard },
@@ -71,14 +71,27 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
           return (
             <button
               key={item.id}
-              onClick={() => setView(item.id as ViewState)}
+              onClick={() => {
+                if (item.id === 'products') {
+                  markAllNotificationsAsRead();
+                }
+                setView(item.id as ViewState);
+              }}
               className={`w-full flex items-center p-3 rounded-xl transition-all group relative
                 ${isActive ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/50' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}
               `}
             >
               <Icon size={20} className={isActive ? 'scale-110' : 'group-hover:scale-110 transition-transform'} />
-              <span className="ml-3 font-semibold text-sm hidden lg:block">{item.label}</span>
-              {isActive && <div className="absolute right-3 w-1.5 h-1.5 bg-white rounded-full hidden lg:block"></div>}
+              <span className="ml-3 font-semibold text-sm hidden lg:block flex-1 text-left">{item.label}</span>
+              {item.id === 'products' && unreadAlertCount > 0 && (
+                <span className="hidden lg:inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black bg-red-500 text-white rounded-full">
+                  {unreadAlertCount > 99 ? '99+' : unreadAlertCount}
+                </span>
+              )}
+              {item.id === 'products' && unreadAlertCount > 0 && (
+                <span className="lg:hidden absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-900"></span>
+              )}
+              {isActive && (item.id !== 'products' || unreadAlertCount === 0) && <div className="absolute right-3 w-1.5 h-1.5 bg-white rounded-full hidden lg:block"></div>}
             </button>
           );
         })}

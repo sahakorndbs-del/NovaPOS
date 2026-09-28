@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import { FileSpreadsheet, Download, Calendar, Filter, Search, TrendingUp, DollarSign, Wallet, PiggyBank } from 'lucide-react';
+import { getLocalDateString, getLocalMonthString } from '../lib/dateUtils';
 
 interface ReportItem {
   id: string;
@@ -18,15 +19,15 @@ interface ReportItem {
 const SalesReport: React.FC = () => {
   const { orders, storeConfig } = useStore();
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [selectedDate, setSelectedDate] = useState(() => getLocalDateString(new Date()));
+  const [selectedMonth, setSelectedMonth] = useState(() => getLocalMonthString(new Date())); // YYYY-MM
   const [searchQuery, setSearchQuery] = useState('');
 
   // 1. Filter orders based on selected period
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
-      const orderDate = order.timestamp.split('T')[0];
-      const orderMonth = order.timestamp.slice(0, 7);
+      const orderDate = getLocalDateString(order.timestamp);
+      const orderMonth = getLocalMonthString(order.timestamp);
       
       if (viewMode === 'daily') {
         return orderDate === selectedDate;
